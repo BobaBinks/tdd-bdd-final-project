@@ -20,7 +20,7 @@ Product Store Service with UI
 """
 from flask import jsonify, request, abort
 from flask import url_for  # noqa: F401 pylint: disable=unused-import
-from service.models import Product
+from service.models import Product, Category
 from service.common import status  # HTTP Status Codes
 from . import app
 
@@ -86,7 +86,6 @@ def create_products():
 
     message = product.serialize()
 
-
     location_url = url_for("read_product", product_id=product.id, _external=True)
     return jsonify(message), status.HTTP_201_CREATED, {"Location": location_url}
 
@@ -99,10 +98,33 @@ def create_products():
 def list_products():
     """Returns a list of Products"""
     app.logger.info("Request to list Products...")
-    products = Product.all()
+
+    products = []
+    name = request.args.get("name")
+    category = request.args.get("category")
+    available = request.args.get("available")
+
+    if name:
+        app.logger.info("Find by name: %s", name)
+        products = Product.find_by_name(name)
+    elif category:
+        app.logger.info("Find by category: %s", category)
+        # create enum from string
+        category_value = getattr(Category, category.upper())
+        products = Product.find_by_category(category_value)
+    elif available:
+        app.logger.info("Find by availability: %s", available)
+        # create bool from string
+        available_value = available.lower() in ["true", "yes", "1"]
+        products = Product.find_by_availability(available_value)
+    else:
+        app.logger.info("Find all")
+        products = Product.all()
+
     results = [product.serialize() for product in products]
     app.logger.info("[%s] Products returned", len(results))
     return results, status.HTTP_200_OK
+
 
 ######################################################################
 # R E A D   A   P R O D U C T
@@ -121,27 +143,32 @@ def read_product(product_id):
 
     return jsonify(product.serialize()), status.HTTP_200_OK
 
+
 ######################################################################
 # U P D A T E   A   P R O D U C T
 ######################################################################
 
 @app.route("/products", methods=["PUT"])
 def update_product():
-
+    """
+    Update a Product
+    This endpoint will update a Product based the body that is posted
+    """
     app.logger.info("Request to Update a Product...")
     check_content_type("application/json")
-    
+
     data = request.get_json()
 
     product = Product.find(data['id'])
 
     if not product:
         abort(status.HTTP_404_NOT_FOUND, f"Product with id '{data['id']}' was not found.")
-    
+
     product.deserialize(data)
     product.update()
 
     return jsonify(product.serialize()), status.HTTP_200_OK
+
 
 ######################################################################
 # D E L E T E   A   P R O D U C T
@@ -157,7 +184,7 @@ def delete_products(product_id):
 
     if not product:
         abort(status.HTTP_404_NOT_FOUND, f"Product with id '{product_id}' was not found.")
-    
+
     product.delete()
 
     return "", status.HTTP_204_NO_CONTENT
