@@ -87,6 +87,7 @@ $(function () {
         let price = $("#product_price").val();
 
         let data = {
+            "id": product_id,
             "name": name,
             "description": description,
             "available": available,
@@ -98,7 +99,7 @@ $(function () {
 
         let ajax = $.ajax({
                 type: "PUT",
-                url: `/products/${product_id}`,
+                url: `/products`,
                 contentType: "application/json",
                 data: JSON.stringify(data)
             })
